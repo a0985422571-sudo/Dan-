@@ -166,6 +166,15 @@
         background: var(--btn-soft-hover);
       }
 
+      .export-btn {
+        background: var(--btn-soft-bg);
+        color: var(--btn-soft-text);
+      }
+
+      .export-btn:hover {
+        background: var(--btn-soft-hover);
+      }
+
       .tomorrow-wrap {
         margin-top: 14px;
       }
@@ -242,6 +251,45 @@
         color: var(--muted);
         font-size: 0.93rem;
       }
+
+      .history {
+        margin-top: 24px;
+        border-top: 2px dashed var(--line);
+        padding-top: 18px;
+      }
+
+      .history h2 {
+        margin: 0 0 10px;
+        color: var(--primary-dark);
+        font-size: 1.05rem;
+      }
+
+      .history-empty {
+        margin: 0;
+        color: var(--muted);
+        font-size: 0.9rem;
+      }
+
+      .history details {
+        border: 2px solid var(--line);
+        background: var(--card-soft);
+        border-radius: 12px;
+        padding: 10px 12px;
+        margin-top: 10px;
+      }
+
+      .history summary {
+        cursor: pointer;
+        font-weight: 700;
+        color: var(--text);
+      }
+
+      .history-item-content {
+        margin-top: 10px;
+        line-height: 1.6;
+        white-space: pre-wrap;
+        font-size: 0.94rem;
+      }
     </style>
   </head>
   <body>
@@ -268,6 +316,7 @@
         <button class="organize-btn" id="organizeBtn">整理日記</button>
         <button class="clear-btn" id="clearBtn">清空全部</button>
         <button class="copy-all-btn" id="copyAllBtn">一鍵複製全部</button>
+        <button class="export-btn" id="exportTxtBtn">匯出 txt</button>
       </div>
 
       <section class="mood-helper">
@@ -322,6 +371,12 @@
 
       <p class="encouragement" id="encouragement">（整理完會跳出一句小鼓勵）</p>
 
+      <section class="history" id="historySection">
+        <h2>🗂️ 歷史紀錄（最近 7 篇）</h2>
+        <p class="history-empty" id="historyEmpty">目前還沒有歷史紀錄，先整理一篇看看吧～</p>
+        <div id="historyList"></div>
+      </section>
+
       <p class="hint">小提醒：這是前端離線小工具，內容不會被上傳。</p>
     </main>
 
@@ -330,9 +385,12 @@
       const organizeBtn = document.getElementById("organizeBtn");
       const clearBtn = document.getElementById("clearBtn");
       const copyAllBtn = document.getElementById("copyAllBtn");
+      const exportTxtBtn = document.getElementById("exportTxtBtn");
       const themeSelect = document.getElementById("themeSelect");
       const todayDate = document.getElementById("todayDate");
       const tomorrowNoteInput = document.getElementById("tomorrowNoteInput");
+      const historyList = document.getElementById("historyList");
+      const historyEmpty = document.getElementById("historyEmpty");
       const outputs = {
         fullDiary: document.getElementById("fullDiary"),
         shortReport: document.getElementById("shortReport"),
@@ -341,6 +399,7 @@
       };
       const storageKey = "danDanDiaryData";
       const themeStorageKey = "danDanDiaryTheme";
+      const historyStorageKey = "danDanDiaryHistory";
       const encouragementEl = document.getElementById("encouragement");
 
       const encouragements = [
@@ -537,6 +596,104 @@
         localStorage.setItem(storageKey, JSON.stringify(payload));
       }
 
+      function getCurrentThemeLabel() {
+        return themeSelect.options[themeSelect.selectedIndex]?.text || "粉紅膠囊";
+      }
+
+      function buildCurrentEntry() {
+        return {
+          date: formatDate(new Date()),
+          input: input.value.trim(),
+          fullDiary: outputs.fullDiary.textContent,
+          shortReport: outputs.shortReport.textContent,
+          quote: outputs.quote.textContent,
+          mood: outputs.mood.textContent,
+          tomorrowNote: tomorrowNoteInput.value.trim() || "（尚未填寫）",
+          theme: getCurrentThemeLabel(),
+        };
+      }
+
+      function loadHistory() {
+        const stored = localStorage.getItem(historyStorageKey);
+        if (!stored) return [];
+        try {
+          const data = JSON.parse(stored);
+          return Array.isArray(data) ? data : [];
+        } catch {
+          localStorage.removeItem(historyStorageKey);
+          return [];
+        }
+      }
+
+      function saveHistory(history) {
+        localStorage.setItem(historyStorageKey, JSON.stringify(history));
+      }
+
+      function renderHistory() {
+        const history = loadHistory();
+        historyList.innerHTML = "";
+        historyEmpty.style.display = history.length ? "none" : "block";
+
+        history.forEach((item) => {
+          const details = document.createElement("details");
+          const summary = document.createElement("summary");
+          summary.textContent = `${item.date || "未記錄日期"}｜${item.theme || "未記錄主題"}`;
+
+          const content = document.createElement("div");
+          content.className = "history-item-content";
+          content.textContent = [
+            `【原始輸入內容】\n${item.input || "（空白）"}`,
+            `【今日日記】\n${item.fullDiary || "（空白）"}`,
+            `【小蝦蝦版短版回報】\n${item.shortReport || "（空白）"}`,
+            `【今日金句】\n${item.quote || "（空白）"}`,
+            `【今日情緒關鍵字】\n${item.mood || "（空白）"}`,
+            `【明天要記得】\n${item.tomorrowNote || "（尚未填寫）"}`,
+          ].join("\n\n");
+
+          details.appendChild(summary);
+          details.appendChild(content);
+          historyList.appendChild(details);
+        });
+      }
+
+      function addHistoryEntry(entry) {
+        const history = loadHistory();
+        history.unshift(entry);
+        const trimmed = history.slice(0, 7);
+        saveHistory(trimmed);
+        renderHistory();
+      }
+
+      function buildExportText() {
+        return [
+          `日期：${formatDate(new Date())}`,
+          `主題：${getCurrentThemeLabel()}`,
+          "",
+          `【今日日記】\n${outputs.fullDiary.textContent}`,
+          "",
+          `【小蝦蝦版短版回報】\n${outputs.shortReport.textContent}`,
+          "",
+          `【今日金句】\n${outputs.quote.textContent}`,
+          "",
+          `【今日情緒關鍵字】\n${outputs.mood.textContent}`,
+          "",
+          `【明天要記得】\n${tomorrowNoteInput.value.trim() || "（尚未填寫）"}`,
+        ].join("\n");
+      }
+
+      function exportTxtFile() {
+        const text = buildExportText();
+        const blob = new Blob([text], { type: "text/plain;charset=utf-8" });
+        const link = document.createElement("a");
+        const url = URL.createObjectURL(blob);
+        link.href = url;
+        link.download = `dan-dan-${formatDate(new Date()).replaceAll("/", "-")}.txt`;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        URL.revokeObjectURL(url);
+      }
+
       function loadData() {
         const stored = localStorage.getItem(storageKey);
         if (!stored) return;
@@ -557,6 +714,14 @@
         applyOutputs(result);
         encouragementEl.textContent = getRandomEncouragement();
         saveData();
+
+        if (input.value.trim()) {
+          addHistoryEntry(buildCurrentEntry());
+        }
+      });
+
+      exportTxtBtn.addEventListener("click", () => {
+        exportTxtFile();
       });
 
       document.querySelectorAll(".mood-btn").forEach((btn) => {
@@ -631,6 +796,7 @@
       renderTodayDate();
       loadTheme();
       loadData();
+      renderHistory();
     </script>
   </body>
 </html>
