@@ -227,31 +227,84 @@
       }
 
       .jet-wrap {
+        position: relative;
         margin-top: 10px;
-        min-height: 34px;
+        min-height: 54px;
         display: flex;
         align-items: center;
         gap: 10px;
+        overflow: visible;
       }
 
       .jet-btn {
         background: var(--btn-soft-bg);
         color: var(--btn-soft-text);
+        transform: scale(1);
+        transition:
+          transform 0.16s ease,
+          box-shadow 0.16s ease,
+          filter 0.16s ease;
       }
 
       .jet-btn:hover {
         background: var(--btn-soft-hover);
       }
 
-      .jet-output {
-        font-size: 1.2rem;
-        color: var(--text);
-        opacity: 0;
-        transition: opacity 0.25s ease;
+      .jet-btn:active {
+        transform: scale(0.96);
       }
 
-      .jet-output.show {
-        opacity: 1;
+      .jet-btn.bursting {
+        animation: jet-btn-burst 180ms ease;
+      }
+
+      @keyframes jet-btn-burst {
+        0% {
+          transform: scale(1);
+          box-shadow: 0 0 0 rgba(255, 126, 182, 0);
+          filter: brightness(1);
+        }
+        40% {
+          transform: scale(0.95);
+          box-shadow: 0 0 0 0 rgba(255, 126, 182, 0);
+          filter: brightness(1.08);
+        }
+        100% {
+          transform: scale(1);
+          box-shadow: 0 0 0 10px rgba(255, 126, 182, 0);
+          filter: brightness(1);
+        }
+      }
+
+      .jet-output {
+        position: absolute;
+        inset: 0;
+        pointer-events: none;
+      }
+
+      .jet-burst {
+        position: absolute;
+        left: var(--start-x, 56px);
+        top: var(--start-y, 12px);
+        font-size: clamp(1.5rem, 1.1rem + 1vw, 1.9rem);
+        line-height: 1;
+        will-change: transform, opacity;
+        animation: jet-rise var(--duration, 1.4s) ease-out forwards;
+      }
+
+      @keyframes jet-rise {
+        0% {
+          opacity: 0;
+          transform: translate(0, 0) scale(0.85);
+        }
+        12% {
+          opacity: 1;
+          transform: translate(-1px, -7px) scale(1.06);
+        }
+        100% {
+          opacity: 0;
+          transform: translate(var(--drift-x, 0px), -52px) scale(1.24);
+        }
       }
 
       .tomorrow-wrap {
@@ -536,7 +589,6 @@
 
       const defaultEncouragement = "（整理完會跳出一句小鼓勵）";
       const jetEmojis = ["🥺🫳❤️", "🙄🤌", "👀✨", "🍬✨", "bonk", "😼🌽", "🐹💥", "🫳🍓❤️"];
-      let jetTimer = null;
 
       const moodMap = [
         { key: "開心", words: ["開心", "快樂", "興奮", "滿足"] },
@@ -1020,13 +1072,26 @@
 
       jetBtn.addEventListener("click", () => {
         const randomEmoji = jetEmojis[Math.floor(Math.random() * jetEmojis.length)];
-        jetOutput.textContent = randomEmoji;
-        jetOutput.classList.add("show");
-        if (jetTimer) clearTimeout(jetTimer);
-        jetTimer = setTimeout(() => {
-          jetOutput.classList.remove("show");
-          jetTimer = null;
-        }, 1800);
+        const burst = document.createElement("span");
+        const duration = 1200 + Math.random() * 600;
+        const offsetX = -14 + Math.random() * 28;
+        const offsetY = 8 + Math.random() * 16;
+        const driftX = -18 + Math.random() * 36;
+
+        burst.className = "jet-burst";
+        burst.textContent = randomEmoji;
+        burst.style.setProperty("--start-x", `calc(56px + ${offsetX}px)`);
+        burst.style.setProperty("--start-y", `${offsetY}px`);
+        burst.style.setProperty("--drift-x", `${driftX}px`);
+        burst.style.setProperty("--duration", `${duration}ms`);
+
+        jetOutput.appendChild(burst);
+        setTimeout(() => burst.remove(), duration + 120);
+
+        jetBtn.classList.remove("bursting");
+        requestAnimationFrame(() => {
+          jetBtn.classList.add("bursting");
+        });
       });
 
       document.querySelectorAll(".copy-btn").forEach((btn) => {
